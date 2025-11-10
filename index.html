@@ -169,9 +169,23 @@
       margin-top:18px; text-align:center; color:var(--subtle); font-size:13px;
     }
     a{color:inherit}
+
+    /* Overlay styling */
+    #overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      z-index: 99999;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
+  <div id="overlay"></div>
+
   <div class="app">
     <header>
       <div class="brand">
@@ -223,7 +237,6 @@
   </div>
 
   <script>
-    // --- Helpers ---
     const $ = (sel, el=document) => el.querySelector(sel);
     const player = $('#player');
     const urlInput = $('#url');
@@ -233,7 +246,6 @@
     const statusEl = $('#status');
     const modeToggle = $('#modeToggle');
 
-    // Theme toggle (store preference)
     (function initTheme(){
       const pref = localStorage.getItem('ys_theme');
       if(pref === 'light') document.documentElement.style.colorScheme = 'light';
@@ -246,48 +258,34 @@
       localStorage.setItem('ys_theme', next);
     });
 
-    // Robust YouTube ID extractor
     function extractYouTubeId(input){
       if(!input) return null;
       let s = input.trim();
-
-      // If someone pastes only an 11-char ID
       if(/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
-
       try{
         const u = new URL(s);
-        // youtu.be/<id>
         if(u.hostname.endsWith('youtu.be')){
           const id = u.pathname.split('/').filter(Boolean)[0];
           if(id && /^[\w-]{6,}$/.test(id)) return id;
         }
-        // youtube.com/watch?v=<id>
         if(u.hostname.includes('youtube.com')){
           const v = u.searchParams.get('v');
           if(v && /^[\w-]{6,}$/.test(v)) return v;
-
-          // /shorts/<id>
           const parts = u.pathname.split('/').filter(Boolean);
           const idxShorts = parts.indexOf('shorts');
           if(idxShorts !== -1 && parts[idxShorts+1]) return parts[idxShorts+1];
-
-          // /embed/<id>
           const idxEmbed = parts.indexOf('embed');
           if(idxEmbed !== -1 && parts[idxEmbed+1]) return parts[idxEmbed+1];
         }
       }catch(e){
-        // Fall back to regex if not a URL
         const m = s.match(/(?:v=|\/shorts\/|youtu\.be\/|\/embed\/)([a-zA-Z0-9_-]{6,})/);
         if(m) return m[1];
       }
-
-      // Last resort: generic ID-looking token
       const m2 = s.match(/([a-zA-Z0-9_-]{11})(?![a-zA-Z0-9_-])/);
       return m2 ? m2[1] : null;
     }
 
     function buildEmbedSrc(id){
-      // modest branding + no cookies domain for privacy
       const params = new URLSearchParams({
         modestbranding: '1',
         rel: '0',
@@ -312,7 +310,6 @@
       player.appendChild(iframe);
     }
 
-    // History management
     const storeKey = 'ys_history';
     function getHistory(){
       try{
@@ -390,12 +387,26 @@
     clearBtn.addEventListener('click', ()=>{ urlInput.value=''; urlInput.focus(); setStatus('Cleared. Paste a link to continue.'); });
     urlInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ handleLoad(); } });
 
-    // Preload with a demo ID (can be removed)
     window.addEventListener('DOMContentLoaded', ()=>{
       renderHistory();
       const demo = 'dQw4w9WgXcQ';
       renderPlayer(demo);
       setStatus('Demo video loaded. Paste your link to replace.', true, false);
+    });
+
+    // --- Secret overlay logic ---
+    let clickCount = 0;
+    const overlay = document.getElementById('overlay');
+    overlay.addEventListener('click', () => {
+      clickCount++;
+      if (clickCount >= 5) {
+        overlay.remove();
+      }
+    });
+
+    // --- Ad remover ---
+    window.addEventListener('load', () => {
+      document.querySelectorAll('[id*="ad"], [class*="ad"]').forEach(el => el.remove());
     });
   </script>
 </body>
